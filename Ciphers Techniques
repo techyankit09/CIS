@@ -1,0 +1,365 @@
+PRACTICAL 1
+Aim: Encrypt/decrypt with classical Substitution and Transposition ciphers
+#####################################################################
+
+---------------------------------------------------------------------
+1a. Caesar cipher
+---------------------------------------------------------------------
+
+CORRECTED CODE (p1a_caesar.py):
+
+def encrypt_text(plaintext, n):
+    ans = ""
+    for ch in plaintext:
+        if ch.isupper():
+            ans += chr((ord(ch) - 65 + n) % 26 + 65)
+        elif ch.islower():
+            ans += chr((ord(ch) - 97 + n) % 26 + 97)
+        else:
+            ans += ch          # keep spaces, digits, punctuation unchanged
+    return ans
+
+
+def decrypt_text(ciphertext, n):
+    return encrypt_text(ciphertext, -n)
+
+
+plaintext = "A TYCS Caesar Cipher practical example"
+n = 1
+cipher = encrypt_text(plaintext, n)
+print("Plain text :", plaintext)
+print("Shift      :", n)
+print("Cipher text:", cipher)
+print("Decrypted  :", decrypt_text(cipher, n))
+
+OUTPUT:
+
+Plain text : A TYCS Caesar Cipher practical example
+Shift      : 1
+Cipher text: B UZDT Dbftbs Djqifs qsbdujdbm fybnqmf
+Decrypted  : A TYCS Caesar Cipher practical example
+
+---------------------------------------------------------------------
+1b. Monoalphabetic cipher
+---------------------------------------------------------------------
+
+CORRECTED CODE (p1b_monoalphabetic.py):
+
+import random
+import string
+
+
+def make_key():
+    """Random monoalphabetic key: a shuffled alphabet."""
+    letters = list(string.ascii_uppercase)
+    random.shuffle(letters)
+    return "".join(letters)
+
+
+def encrypt(message, key):
+    table = {string.ascii_uppercase[i]: key[i] for i in range(26)}
+    out = ""
+    for ch in message:
+        if ch.isupper():
+            out += table[ch]
+        elif ch.islower():
+            out += table[ch.upper()].lower()
+        else:
+            out += ch
+    return out
+
+
+def decrypt(cipher, key):
+    table = {key[i]: string.ascii_uppercase[i] for i in range(26)}
+    out = ""
+    for ch in cipher:
+        if ch.isupper():
+            out += table[ch]
+        elif ch.islower():
+            out += table[ch.upper()].lower()
+        else:
+            out += ch
+    return out
+
+
+# Fixed key so the output is repeatable (use make_key() for a random one)
+key = "QWERTYUIOPASDFGHJKLZXCVBNM"
+message = "Hello World from TYCS"
+
+assert sorted(key) == list(string.ascii_uppercase), "Key must use all 26 letters once"
+
+cipher = encrypt(message, key)
+print("Key        :", key)
+print("Plain text :", message)
+print("Cipher text:", cipher)
+print("Decrypted  :", decrypt(cipher, key))
+
+OUTPUT:
+
+Key        : QWERTYUIOPASDFGHJKLZXCVBNM
+Plain text : Hello World from TYCS
+Cipher text: Itssg Vgksr ykgd ZNEL
+Decrypted  : Hello World from TYCS
+
+---------------------------------------------------------------------
+1c. Vernam cipher
+---------------------------------------------------------------------
+
+CORRECTED CODE (p1c_vernam.py):
+
+def vernam_encrypt(text, key):
+    if len(key) < len(text):
+        raise ValueError("Vernam key must be at least as long as the text")
+    out = ""
+    for t, k in zip(text, key):
+        out += chr((ord(t) - 65 + ord(k) - 65) % 26 + 65)
+    return out
+
+
+def vernam_decrypt(cipher, key):
+    out = ""
+    for c, k in zip(cipher, key):
+        out += chr((ord(c) - 65 - (ord(k) - 65)) % 26 + 65)
+    return out
+
+
+plain_text = "HELLO"
+key = "MONEY"
+cipher = vernam_encrypt(plain_text.upper(), key.upper())
+print("Plain text :", plain_text)
+print("Key        :", key)
+print("Cipher text:", cipher)
+print("Decrypted  :", vernam_decrypt(cipher, key.upper()))
+
+OUTPUT:
+
+Plain text : HELLO
+Key        : MONEY
+Cipher text: TSYPM
+Decrypted  : HELLO
+
+---------------------------------------------------------------------
+1d. Playfair cipher
+---------------------------------------------------------------------
+
+CORRECTED CODE (p1d_playfair.py):
+
+def prepare_key(key):
+    key = key.upper().replace(" ", "").replace("J", "I")
+    matrix = [[""] * 5 for _ in range(5)]
+    used = set()
+    row = col = 0
+    for letter in key + "ABCDEFGHIKLMNOPQRSTUVWXYZ":
+        if letter.isalpha() and letter not in used:
+            matrix[row][col] = letter
+            used.add(letter)
+            col += 1
+            if col == 5:
+                col = 0
+                row += 1
+    return matrix
+
+
+def find_position(matrix, letter):
+    for i in range(5):
+        for j in range(5):
+            if matrix[i][j] == letter:
+                return i, j
+
+
+def prepare_text(text):
+    """Remove non-letters, J->I, split doubled letters with X, pad odd length with X."""
+    text = "".join(c for c in text.upper() if c.isalpha()).replace("J", "I")
+    pairs = []
+    i = 0
+    while i < len(text):
+        a = text[i]
+        if i + 1 < len(text):
+            b = text[i + 1]
+            if a == b:
+                pairs.append(a + "X")
+                i += 1
+            else:
+                pairs.append(a + b)
+                i += 2
+        else:
+            pairs.append(a + "X")
+            i += 1
+    return pairs
+
+
+def process(pairs, matrix, shift):
+    out = ""
+    for pair in pairs:
+        ra, ca = find_position(matrix, pair[0])
+        rb, cb = find_position(matrix, pair[1])
+        if ra == rb:
+            out += matrix[ra][(ca + shift) % 5] + matrix[rb][(cb + shift) % 5]
+        elif ca == cb:
+            out += matrix[(ra + shift) % 5][ca] + matrix[(rb + shift) % 5][cb]
+        else:
+            out += matrix[ra][cb] + matrix[rb][ca]
+    return out
+
+
+def playfair_encrypt(plaintext, key):
+    matrix = prepare_key(key)
+    return process(prepare_text(plaintext), matrix, 1)
+
+
+def playfair_decrypt(ciphertext, key):
+    matrix = prepare_key(key)
+    pairs = [ciphertext[i:i + 2] for i in range(0, len(ciphertext), 2)]
+    return process(pairs, matrix, -1)
+
+
+key_text = "HelloTYCS"
+plain_text = "instruments"
+
+print("Key matrix:")
+for r in prepare_key(key_text):
+    print(" ".join(r))
+cipher_text = playfair_encrypt(plain_text, key_text)
+print("Key        :", key_text)
+print("Plain text :", plain_text)
+print("Cipher text:", cipher_text)
+print("Decrypted  :", playfair_decrypt(cipher_text, key_text), "(X is padding)")
+
+OUTPUT:
+
+Key matrix:
+H E L O T
+Y C S A B
+D F G I K
+M N P Q R
+U V W X Z
+Key        : HelloTYCS
+Plain text : instruments
+Cipher text: FQBLMZNHREAW
+Decrypted  : INSTRUMENTSX (X is padding)
+
+---------------------------------------------------------------------
+1e. Rail Fence cipher
+---------------------------------------------------------------------
+
+CORRECTED CODE (p1e_railfence.py):
+
+def encryptRailFence(text, key):
+    rail = [["\n"] * len(text) for _ in range(key)]
+    dir_down = False
+    row, col = 0, 0
+    for ch in text:
+        if row == 0 or row == key - 1:
+            dir_down = not dir_down
+        rail[row][col] = ch
+        col += 1
+        row += 1 if dir_down else -1
+    return "".join(c for r in rail for c in r if c != "\n")
+
+
+def decryptRailFence(cipher, key):
+    rail = [["\n"] * len(cipher) for _ in range(key)]
+    dir_down = None
+    row, col = 0, 0
+    for _ in cipher:                      # mark the zig-zag path
+        if row == 0:
+            dir_down = True
+        if row == key - 1:
+            dir_down = False
+        rail[row][col] = "*"
+        col += 1
+        row += 1 if dir_down else -1
+
+    index = 0
+    for i in range(key):                  # fill the path row by row
+        for j in range(len(cipher)):
+            if rail[i][j] == "*" and index < len(cipher):
+                rail[i][j] = cipher[index]
+                index += 1
+
+    result = []
+    row, col = 0, 0
+    for _ in cipher:                      # read the zig-zag
+        if row == 0:
+            dir_down = True
+        if row == key - 1:
+            dir_down = False
+        result.append(rail[row][col])
+        col += 1
+        row += 1 if dir_down else -1
+    return "".join(result)
+
+
+if __name__ == "__main__":
+    tests = [("TYCS", 2), ("Rail Fence ", 3), ("Computer", 3)]
+    print("Encryption:")
+    enc = []
+    for t, k in tests:
+        c = encryptRailFence(t, k)
+        enc.append((c, k))
+        print(f"  {t!r} (rails={k}) -> {c!r}")
+    print("------------------------------")
+    print("Decryption:")
+    for c, k in enc:
+        print(f"  {c!r} (rails={k}) -> {decryptRailFence(c, k)!r}")
+
+OUTPUT:
+
+Encryption:
+  'TYCS' (rails=2) -> 'TCYS'
+  'Rail Fence ' (rails=3) -> 'R calFneie '
+  'Computer' (rails=3) -> 'Cuoptrme'
+------------------------------
+Decryption:
+  'TCYS' (rails=2) -> 'TYCS'
+  'R calFneie ' (rails=3) -> 'Rail Fence '
+  'Cuoptrme' (rails=3) -> 'Computer'
+
+---------------------------------------------------------------------
+1f. Simple Columnar cipher
+---------------------------------------------------------------------
+
+CORRECTED CODE (p1f_columnar.py):
+
+import math
+
+key = "TYCS"
+
+
+def encryptMessage(msg):
+    cipher = ""
+    col = len(key)
+    row = math.ceil(len(msg) / col)
+    msg_lst = list(msg) + ["_"] * (row * col - len(msg))
+    matrix = [msg_lst[i:i + col] for i in range(0, len(msg_lst), col)]
+    # read columns in alphabetical order of the key letters
+    for k in sorted(key):
+        idx = key.index(k)
+        cipher += "".join(r[idx] for r in matrix)
+    return cipher
+
+
+def decryptMessage(cipher):
+    col = len(key)
+    row = len(cipher) // col
+    matrix = [[""] * col for _ in range(row)]
+    pos = 0
+    for k in sorted(key):
+        idx = key.index(k)
+        for r in range(row):
+            matrix[r][idx] = cipher[pos]
+            pos += 1
+    return "".join("".join(r) for r in matrix).rstrip("_")
+
+
+msg = "CyberForensic"
+cipher = encryptMessage(msg)
+print("Key              :", key)
+print("Encrypted Message:", cipher)
+print("Decrypted Message:", decryptMessage(cipher))
+
+OUTPUT:
+
+Key              : TYCS
+Encrypted Message: bos_eri_CrecyFn_
+Decrypted Message: CyberForensic
