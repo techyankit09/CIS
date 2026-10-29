@@ -1,0 +1,59 @@
+PRACTICAL 3
+Aim: Generate and verify Message Authentication Codes (MAC)
+#####################################################################
+
+---------------------------------------------------------------------
+HMAC
+---------------------------------------------------------------------
+import hmac
+import hashlib
+
+message = "Welcome to TYCS."
+key = "INS"
+
+# MAC 1: key only, no message
+hmac1 = hmac.new(key.encode(), digestmod="sha256")
+d1 = hmac1.digest()
+print("Message Digest 1 :", hmac1.name, d1.hex())
+
+# MAC 2: whole message
+hmac2 = hmac.new(key.encode(), digestmod="sha256")
+hmac2.update(message.encode("utf-8"))
+d2 = hmac2.digest()
+print("Message Digest 2 :", hmac2.name, d2.hex())
+
+# MAC 3: same message fed in two pieces (identical to MAC 2)
+hmac3 = hmac.new(key.encode(), digestmod="sha256")
+hmac3.update("Welcome to ".encode("utf-8"))
+hmac3.update("TYCS.".encode("utf-8"))
+d3 = hmac3.digest()
+print("Message Digest 3 :", hmac3.name, d3.hex())
+
+print("\nDigest size for 1:{}, 2:{}, 3:{}".format(
+    hmac1.digest_size, hmac2.digest_size, hmac3.digest_size))
+print("Block size  for 1:{}, 2:{}, 3:{}".format(
+    hmac1.block_size, hmac2.block_size, hmac3.block_size))
+
+
+# ---- Verification ----
+def verify(message, key, received_mac):
+    expected = hmac.new(key.encode(), message.encode("utf-8"), hashlib.sha256).digest()
+    return hmac.compare_digest(expected, received_mac)   # constant-time compare
+
+
+print("\nVerify original message :", verify(message, key, d2))
+print("Verify tampered message :", verify("Welcome to TYCS!", key, d2))
+print("Verify wrong key        :", verify(message, "WRONG", d2))
+
+OUTPUT:
+
+Message Digest 1 : hmac-sha256 401c456ad5928aadffd6461e3aa551d53346b480617b9b54c42127eb9f3f053f
+Message Digest 2 : hmac-sha256 7699a8a88f1823d159fff270e5fe028bb6e138e8abd824369382226098612181
+Message Digest 3 : hmac-sha256 7699a8a88f1823d159fff270e5fe028bb6e138e8abd824369382226098612181
+
+Digest size for 1:32, 2:32, 3:32
+Block size  for 1:64, 2:64, 3:64
+
+Verify original message : True
+Verify tampered message : False
+Verify wrong key        : False
