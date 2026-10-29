@@ -1,0 +1,82 @@
+PRACTICAL 5
+Aim: Diffie-Hellman key exchange
+#####################################################################
+
+---------------------------------------------------------------------
+Diffie-Hellman
+---------------------------------------------------------------------
+def prime_checker(p):
+    if p < 2:
+        return -1
+    for i in range(2, int(p ** 0.5) + 1):
+        if p % i == 0:
+            return -1
+    return 1
+
+
+def primitive_check(g, p):
+    """g is a primitive root of p if g^1..g^(p-1) mod p are all distinct."""
+    values = {pow(g, i, p) for i in range(1, p)}
+    return 1 if len(values) == p - 1 else -1
+
+
+while True:
+    P = int(input("Enter P : "))
+    if prime_checker(P) == -1:
+        print("Number Is Not Prime, Please Enter Again!")
+        continue
+    break
+
+while True:
+    G = int(input(f"Enter The Primitive Root Of {P} : "))
+    if primitive_check(G, P) == -1:
+        print(f"Number Is Not A Primitive Root Of {P}, Please Try Again!")
+        continue
+    break
+
+while True:
+    x1 = int(input("Enter The Private Key Of User 1 : "))
+    x2 = int(input("Enter The Private Key Of User 2 : "))
+    if not (1 <= x1 < P and 1 <= x2 < P):
+        print(f"Private Key Of Both The Users Should Be Between 1 and {P - 1}!")
+        continue
+    break
+
+# Public keys
+y1, y2 = pow(G, x1, P), pow(G, x2, P)
+print(f"\nPublic Key Of User 1 Is {y1}\nPublic Key Of User 2 Is {y2}")
+
+# Shared secret keys
+k1, k2 = pow(y2, x1, P), pow(y1, x2, P)
+print(f"\nSecret Key For User 1 Is {k1}\nSecret Key For User 2 Is {k2}\n")
+
+if k1 == k2:
+    print("Keys Have Been Exchanged Successfully")
+else:
+    print("Keys Have Not Been Exchanged Successfully")
+
+OUTPUT:
+
+Inputs used: P = 23, G = 5, private keys 4 and 3
+
+Enter P : Enter The Primitive Root Of 23 : Enter The Private Key Of User 1 : Enter The Private Key Of User 2 : 
+Public Key Of User 1 Is 4
+Public Key Of User 2 Is 10
+
+Secret Key For User 1 Is 18
+Secret Key For User 2 Is 18
+
+Keys Have Been Exchanged Successfully
+
+OUTPUT (validation demo - inputs 9, 23, 4, 5, 4, 3):
+
+Enter P : Number Is Not Prime, Please Enter Again!
+Enter P : Enter The Primitive Root Of 23 : Number Is Not A Primitive Root Of 23, Please Try Again!
+Enter The Primitive Root Of 23 : Enter The Private Key Of User 1 : Enter The Private Key Of User 2 : 
+Public Key Of User 1 Is 4
+Public Key Of User 2 Is 10
+
+Secret Key For User 1 Is 18
+Secret Key For User 2 Is 18
+
+Keys Have Been Exchanged Successfully
