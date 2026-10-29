@@ -1,0 +1,124 @@
+PRACTICAL 6
+Aim: Self-signed certificate and HTTPS (SSL/TLS) server
+#####################################################################
+
+---------------------------------------------------------------------
+Step 1-2: Generate cert.pem and key.pem
+---------------------------------------------------------------------
+from datetime import datetime, timedelta, timezone
+
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.x509.oid import NameOID
+
+# Files are saved in the current folder. (Original used C:/SSITLS/, which
+# fails with FileNotFoundError if that folder does not already exist.)
+certificate_file_path = "cert.pem"
+private_key_file_path = "key.pem"
+
+# Generate a private key
+private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+
+# Generate a self-signed certificate
+subject = issuer = x509.Name([
+    x509.NameAttribute(NameOID.COUNTRY_NAME, "IN"),
+    x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, "Maharashtra"),
+    x509.NameAttribute(NameOID.LOCALITY_NAME, "Mumbai"),
+    x509.NameAttribute(NameOID.ORGANIZATION_NAME, "TYCS"),
+    x509.NameAttribute(NameOID.COMMON_NAME, "localhost"),
+])
+now = datetime.now(timezone.utc)      # utcnow() is deprecated
+certificate = (
+    x509.CertificateBuilder()
+    .subject_name(subject)
+    .issuer_name(issuer)
+    .public_key(private_key.public_key())
+    .serial_number(x509.random_serial_number())
+    .not_valid_before(now)
+    .not_valid_after(now + timedelta(days=365))
+    .add_extension(x509.SubjectAlternativeName([x509.DNSName("localhost")]),
+                   critical=False)
+    .sign(private_key, hashes.SHA256())
+)
+
+with open(certificate_file_path, "wb") as f:
+    f.write(certificate.public_bytes(serialization.Encoding.PEM))
+
+with open(private_key_file_path, "wb") as f:
+    f.write(private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.TraditionalOpenSSL,
+        encryption_algorithm=serialization.NoEncryption(),
+    ))
+
+print(f"Self-signed certificate and private key generated: "
+      f"{certificate_file_path}, {private_key_file_path}")
+print("Subject :", certificate.subject.rfc4514_string())
+print("Valid   :", certificate.not_valid_before_utc.date(), "to",
+      certificate.not_valid_after_utc.date())
+
+OUTPUT:
+
+Self-signed certificate and private key generated: cert.pem, key.pem
+Subject : CN=localhost,O=TYCS,L=Mumbai,ST=Maharashtra,C=IN
+Valid   : 2026-10-29 to 2027-10-29
+
+---------------------------------------------------------------------
+Step 3: HTTPS server
+---------------------------------------------------------------------
+import http.server
+import ssl
+
+# Create an SSL context for a server (loads cert.pem + key.pem from this folder)
+context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+context.minimum_version = ssl.TLSVersion.TLSv1_2
+context.load_cert_chain(certfile="cert.pem", keyfile="key.pem")
+
+server_address = ("localhost", 8443)
+httpd = http.server.HTTPServer(server_address, http.server.SimpleHTTPRequestHandler)
+httpd.socket = context.wrap_socket(httpd.socket, server_side=True)
+
+print(f"Server started at https://{server_address[0]}:{server_address[1]}")
+try:
+    httpd.serve_forever()
+except KeyboardInterrupt:
+    print("\nServer stopped.")
+    httpd.server_close()
+
+OUTPUT (server console):
+
+Server started at https://localhost:8443
+
+OUTPUT (I tested it with a TLS client that trusts cert.pem):
+
+HTTP status: 200
+TLS verified against cert.pem: OK
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>My Secure Web Server</title>
+</head>
+<body>
+  <h1>Welcom
+
+In the browser, open https://localhost:8443 . It shows a 'Not secure / certificate warning'
+because the certificate is self-signed. Click Advanced -> Proceed to localhost.
+That warning is expected and is a good point for the viva.
+
+---------------------------------------------------------------------
+Step 4: index.html
+---------------------------------------------------------------------
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>My Secure Web Server</title>
+</head>
+<body>
+  <h1>Welcome to My Secure Web Server</h1>
+  <p>This is a test page served by a Python-based secure web server.</p>
+  <p>Replace this content with your own web page content.</p>
+</body>
+</html>
