@@ -1,0 +1,92 @@
+PRACTICAL 4
+Aim: RSA digital signature - sign and verify
+#####################################################################
+
+---------------------------------------------------------------------
+RSA digital signature
+---------------------------------------------------------------------
+import hashlib
+
+
+def euclid(m, n):
+    while n:
+        m, n = n, m % n
+    return m
+
+
+def exteuclid(a, b):
+    """Returns (gcd, inverse of b modulo a)."""
+    r1, r2 = a, b
+    t1, t2 = 0, 1
+    while r2 > 0:
+        q = r1 // r2
+        r1, r2 = r2, r1 - q * r2
+        t1, t2 = t2, t1 - q * t2
+    if t1 < 0:
+        t1 %= a
+    return r1, t1
+
+
+p = 823
+q = 953
+n = p * q
+Pn = (p - 1) * (q - 1)
+e = 313
+
+r, d = exteuclid(Pn, e)
+if r != 1:
+    raise SystemExit("e has no inverse mod phi(n). Choose a different e.")
+print("n =", n, " phi(n) =", Pn)
+print("Public key  (e, n):", (e, n))
+print("Private key (d, n):", (d, n))
+
+# ---- Sign (Alice) ----
+M = 1970
+S = pow(M, d, n)                 # signature = M^d mod n
+print("\nMessage M            :", M)
+print("Signature S          :", S)
+
+# ---- Verify (Bob) ----
+M1 = pow(S, e, n)                # M1 = S^e mod n
+print("Recovered M1         :", M1)
+if M == M1:
+    print("As M = M1, Accept the message sent by Alice")
+else:
+    print("As M != M1, Do not accept the message sent by Alice")
+
+# ---- Tampered message check ----
+M_fake = 1971
+print("\nTampered message", M_fake, "verified against S ->",
+      "Accept" if pow(S, e, n) == M_fake else "Reject")
+
+
+# ---- Bonus: sign a text message via its SHA-256 hash (reduced mod n) ----
+def sign_text(text):
+    h = int.from_bytes(hashlib.sha256(text.encode()).digest(), "big") % n
+    return h, pow(h, d, n)
+
+
+def verify_text(text, sig):
+    h = int.from_bytes(hashlib.sha256(text.encode()).digest(), "big") % n
+    return pow(sig, e, n) == h
+
+
+h, sig = sign_text("Pay Bob 100 rupees")
+print("\nText signature verifies :", verify_text("Pay Bob 100 rupees", sig))
+print("Altered text verifies   :", verify_text("Pay Bob 900 rupees", sig))
+
+OUTPUT:
+
+n = 784319  phi(n) = 782544
+Public key  (e, n): (313, 784319)
+Private key (d, n): (160009, 784319)
+
+Message M            : 1970
+Signature S          : 630469
+Recovered M1         : 1970
+As M = M1, Accept the message sent by Alice
+
+Tampered message 1971 verified against S -> Reject
+
+Text signature verifies : True
+Altered text verifies   : False
